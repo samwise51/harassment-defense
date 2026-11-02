@@ -1,35 +1,56 @@
-# Harassment Defense — Web UI (Phase 1)
+# Harassment Defense v0.2.0 research foundation
 
-Private evidence-management web app: add TikTok accounts, incident URLs and descriptions, upload screenshot/recording evidence, review claims, verify file hashes, and export a Markdown case summary. It does **not** scrape TikTok, check posts automatically, use AI yet, or submit reports. An account watchlist is a manual tracking list.
+Self-hosted, localhost-only Flask application for organizing investigations, people, social-media accounts, incidents, original evidence, and authorized research jobs. It does **not** scrape TikTok, identify unknown people, make accusations automatically, or require OpenClaw.
 
-## CachyOS / fish-shell install
+## Features
 
-Unzip the project to `~/harassment-defense-web`. Open a fish terminal there and run:
+- Optional-name person records and separately modeled social-media accounts.
+- Evidence-backed, reversible account/person associations with audit history. AI suggestions remain pending.
+- Investigation cases with protected/watched accounts, incidents, notes, status, and non-destructive archiving.
+- Streamed, configurable evidence uploads with SHA-256 integrity, metadata, duplicate-content reuse, private authenticated downloads, and no incident-count cap.
+- Durable SQLite research queue with progress, cancellation, atomic claiming, restart-safe results, and distinct source outcomes.
+- Synthetic mock TikTok adapter. No network collection or unauthorized scraping.
+- Provider-neutral typed AI contracts; no AI provider or cloud transmission is enabled.
+- CSRF checks, authenticated state-changing routes, restrictive cookies/headers, safe storage keys, and localhost Docker binding.
+
+See [Architecture](docs/ARCHITECTURE.md), [migration and recovery](docs/MIGRATIONS.md), and [security review](docs/SECURITY.md).
+
+## Development (isolated from production)
+
+Create development-only credentials in `.env.dev` (never copy production credentials):
 
 ```fish
-cd ~/harassment-defense-web
-cp .env.example .env
-python -c 'import secrets; from pathlib import Path; p=Path(".env"); p.write_text("APP_ADMIN_TOKEN="+secrets.token_urlsafe(36)+"\nAPP_SECRET_KEY="+secrets.token_urlsafe(48)+"\n")'
-mkdir -p private
-sudo chown -R 10001:10001 private
-chmod 700 private
-chmod 600 .env
-docker compose up -d --build
+cp .env.example .env.dev
+python -c 'import secrets; from pathlib import Path; p=Path(".env.dev"); p.write_text("APP_ADMIN_TOKEN="+secrets.token_urlsafe(36)+"\nAPP_SECRET_KEY="+secrets.token_urlsafe(48)+"\nDATABASE_PATH=/app/private/cases.db\nEVIDENCE_STORAGE_PATH=/app/private/evidence\nREPORTS_PATH=/app/private/reports\nMAX_EVIDENCE_FILE_MB=512\nMAX_REQUEST_MB=1024\n")'
+chmod 600 .env.dev
+docker compose -f compose.dev.yaml up -d --build
 ```
 
-Open **http://127.0.0.1:8088** in a browser on the laptop. The login password is the value after `APP_ADMIN_TOKEN=` in `.env`. To view it locally: `grep '^APP_ADMIN_TOKEN=' .env` (do not share this output). To see logs: `docker compose logs --tail=80`. Shut down: `docker compose down` (does not delete case data).
+Open `http://127.0.0.1:18088`. The standalone file uses project name `harassment-defense-dev`, named volume `hd-dev-private`, and no production bind mount. Do not combine it with `compose.yaml`.
 
-**Only local machine access is enabled** by the explicit `127.0.0.1` port binding. Do not expose the port on LAN or Internet without HTTPS, authentication hardening, and careful privacy review. Avoid copying private evidence into unrelated OpenClaw workspaces. No VPN rotation, fake accounts, or mass reporting.
+Run tests locally:
 
-## Data and upgrades
+```fish
+python -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest -q
+```
 
-The persistent data is in `./private` and includes `cases.db`, `evidence/`, and `reports/`. A Phase 1 CLI database can be migrated *only while the container is stopped*: copy the original `private` directory into the new project (back up both first), then ensure files belong to UID 10001. The existing CLI database schema is reused. Never overwrite a nonempty `private` folder.
+All tests use disposable databases, synthetic records, and isolated evidence directories.
 
-## Limits and security
+## Production-shaped deployment
 
-- Each evidence file: 50 MB; total request: 100 MB; 12 files per incident.
-- Allowed filename extensions: JPG, PNG, WEBP, GIF, PDF, TXT, MP4, MOV, WEBM, M4A, MP3, WAV. **File content is not malware-scanned or verified for real type.** Do not upload untrusted executable content; downloads are forced as attachments.
-- Data is **not encrypted at rest**. Restrict laptop users and secure full-disk encryption/backups.
-- Auth uses a local password from `.env` and a cookie session. Intended for one trusted local operator, not multi-user or public hosting. No brute-force limiter; keep localhost-only.
-- Avoid including unnecessary identifying data. AI interpretations, when added later, must be labeled unverified and require human review.
-- Exports include sensitive incident descriptions; store and share carefully.
+`compose.yaml` remains bound to `127.0.0.1:8088`, uses `./private:/app/private`, and starts one web process plus one research worker. Before upgrading, follow `docs/MIGRATIONS.md`, especially the offline backup and restore rehearsal. Never test migrations against the live database.
+
+Configuration:
+
+| Variable | Default | Purpose |
+|---|---:|---|
+| `DATABASE_PATH` | `/app/private/cases.db` | SQLite database |
+| `EVIDENCE_STORAGE_PATH` | `/app/private/evidence` | Original evidence objects |
+| `REPORTS_PATH` | `/app/private/reports` | Human-reviewed exports |
+| `MAX_EVIDENCE_FILE_MB` | `512` | Per-file streamed upload limit |
+| `MAX_REQUEST_MB` | `1024` | Whole HTTP request limit |
+| `COOKIE_SECURE` | `0` | Set to `1` only behind correctly configured local HTTPS |
+
+Storage remains unencrypted at application level. Use full-disk encryption, restrictive host permissions, and encrypted backups.
