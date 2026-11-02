@@ -13,3 +13,16 @@ services:
       - ALL
     pids_limit: 128
     mem_limit: 512m
+  research-worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: ["python", "worker.py"]
+    volumes:
+      - ./private:/app/private
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 64
+    mem_limit: 256m

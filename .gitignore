@@ -1,8 +1,11 @@
 private/
+dev-private/
 .env
 __pycache__/
 .pytest_cache/
 *.pyc
+.coverage
+htmlcov/
 
 # Local secrets and data
 .env.*
