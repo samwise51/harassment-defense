@@ -1,0 +1,21 @@
+private/
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Local secrets and data
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.db
+
+# Local Python environments
+.venv/
+venv/
+
+# Editor and system files
+.vscode/
+.idea/
+.DS_Store
